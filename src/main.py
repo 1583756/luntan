@@ -260,6 +260,85 @@ async def read_root():
 openai_handler = OpenAIChatHandler(service)
 
 
+@app.post("/stream_progress")
+async def http_stream_progress(request: Request):
+    """流式生成小说，实时显示进度"""
+    ctx = new_context(method="stream_progress", headers=request.headers)
+    request_context.set(ctx)
+    run_id = ctx.run_id
+    
+    raw_body = await request.body()
+    try:
+        body_text = raw_body.decode("utf-8")
+    except Exception as e:
+        body_text = str(raw_body)
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {body_text}, error: {e}")
+    
+    logger.info(f"Received stream request: run_id={run_id}, body={body_text}")
+    
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format")
+    
+    async def progress_generator():
+        """生成进度流"""
+        try:
+            # 定义节点进度映射
+            node_progress = {
+                "outline_node": "📝 正在构思故事大纲...",
+                "opening_node": "🎬 正在生成标题和开篇...",
+                "replies_node": "💬 正在生成网友回复...",
+                "update_node": "✍️ 正在生成楼主回复...",
+                "merge_node": "📦 正在整理最终结果..."
+            }
+            
+            completed_nodes = []
+            
+            # 发送开始消息
+            yield f"event: start\ndata: {{'status': '开始生成', 'run_id': '{run_id}'}}\n\n"
+            
+            # 流式执行工作流并收集结果
+            final_result = None
+            
+            async for chunk in service.astream(payload, service._get_graph(ctx), 
+                                              init_run_config(service._get_graph(ctx), ctx), ctx):
+                # 解析chunk，获取节点名称和结果
+                if isinstance(chunk, tuple) and len(chunk) == 2:
+                    event_id, data = chunk
+                    
+                    # 检查是否是节点完成
+                    if event_id and event_id not in completed_nodes:
+                        completed_nodes.append(event_id)
+                        
+                        # 获取节点进度消息
+                        progress_msg = node_progress.get(event_id, f"⚙️ 正在执行 {event_id}...")
+                        
+                        # 计算进度百分比
+                        progress = len(completed_nodes) / len(node_progress) * 100
+                        
+                        # 发送进度更新
+                        yield f"event: progress\ndata: {{'status': '{progress_msg}', 'progress': {progress:.0f}, 'node': '{event_id}'}}\n\n"
+                
+                # 检查是否是最终结果
+                elif isinstance(chunk, dict) and 'final_story' in chunk:
+                    final_result = chunk
+            
+            # 发送完成消息和结果
+            if final_result:
+                yield f"event: complete\ndata: {{'status': '生成完成', 'progress': 100, 'final_story': '{final_result.get('final_story', '')}'.replace('\n', '\\n')}}\n\n"
+            else:
+                yield f"event: complete\ndata: {{'status': '生成完成', 'progress': 100}}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Error in stream_progress: {e}")
+            yield f"event: error\ndata: {{'status': '生成失败', 'error': '{str(e)}'}}\n\n"
+        finally:
+            cozeloop.flush()
+    
+    return StreamingResponse(progress_generator(), media_type="text/event-stream")
+
+
 @app.post("/run")
 async def http_run(request: Request) -> Dict[str, Any]:
     global result
