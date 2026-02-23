@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: forum-novel-generator
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    envVars:
+      - key: COZE_WORKSPACE_PATH
+        value: /app

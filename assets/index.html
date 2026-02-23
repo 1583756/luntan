@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>论坛体小说生成器</title>
+    <meta name="description" content="基于LangGraph的论坛体小说生成工具">
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="论坛小说">
+    <link rel="manifest" href="/assets/manifest.json">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
+    <link rel="icon" type="image/png" href="/assets/icon-192.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .input-section input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .input-section input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .examples {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .example-tag {
+            padding: 8px 15px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid #ddd;
+        }
+
+        .example-tag:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 20px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .result-header h3 {
+            color: #333;
+            font-size: 1.3em;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .copy-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .copy-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .download-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .download-btn:hover {
+            background: #0b7dda;
+            transform: translateY(-2px);
+        }
+
+        .result-content {
+            background: #f9f9f9;
+            padding: 25px;
+            border-radius: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            border: 2px solid #e0e0e0;
+        }
+
+        .error-message {
+            display: none;
+            padding: 20px;
+            background: #ffebee;
+            color: #c62828;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .action-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📖 论坛体小说生成器</h1>
+            <p>输入主题，一键生成完整的论坛体小说</p>
+        </div>
+
+        <div class="content">
+            <div class="input-section">
+                <label for="theme">请输入小说主题：</label>
+                <input 
+                    type="text" 
+                    id="theme" 
+                    placeholder="例如：我好像做了一件很不体面的事，双男主BL小说"
+                    autocomplete="off"
+                >
+                
+                <div class="examples">
+                    <span class="example-tag" onclick="setTheme('我好像做了一件很不体面的事，双男主BL小说')">不体面的事</span>
+                    <span class="example-tag" onclick="setTheme('我在图书馆遇到了暗恋的学长，双男主BL小说')">图书馆暗恋</span>
+                    <span class="example-tag" onclick="setTheme('我是为了报复才接近他的，结果自己栽进去了，双男主BL小说')">复仇恋爱</span>
+                    <span class="example-tag" onclick="setTheme('室友昨天晚上带回一个快递，拆开里面是一把带血的斧头，双男主BL小说')">带血斧头</span>
+                </div>
+            </div>
+
+            <button class="generate-btn" onclick="generateNovel()">
+                ✨ 生成小说
+            </button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在生成小说，请稍候...</p>
+            </div>
+
+            <div class="error-message" id="error"></div>
+
+            <div class="result-section" id="result">
+                <div class="result-header">
+                    <h3>📝 生成结果</h3>
+                    <div class="action-buttons">
+                        <button class="action-btn copy-btn" onclick="copyResult()">
+                            📋 复制
+                        </button>
+                        <button class="action-btn download-btn" onclick="downloadResult()">
+                            💾 下载
+                        </button>
+                    </div>
+                </div>
+                <div class="result-content" id="resultContent"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Powered by 论坛体小说生成工作流</p>
+        </div>
+    </div>
+
+    <script>
+        let currentResult = '';
+
+        function setTheme(theme) {
+            document.getElementById('theme').value = theme;
+        }
+
+        async function generateNovel() {
+            const theme = document.getElementById('theme').value.trim();
+            
+            if (!theme) {
+                showError('请输入小说主题');
+                return;
+            }
+
+            // 显示加载状态
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('result').classList.remove('active');
+            document.getElementById('error').classList.remove('active');
+            document.getElementById('generateBtn').disabled = true;
+
+            try {
+                const response = await fetch('/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ theme })
+                });
+
+                if (!response.ok) {
+                    throw new Error('生成失败，请稍后重试');
+                }
+
+                const data = await response.json();
+                
+                if (data.final_story) {
+                    currentResult = data.final_story;
+                    document.getElementById('resultContent').textContent = currentResult;
+                    document.getElementById('result').classList.add('active');
+                } else {
+                    throw new Error('未获取到生成结果');
+                }
+
+            } catch (error) {
+                showError(error.message || '生成失败，请检查网络连接');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function copyResult() {
+            if (!currentResult) return;
+
+            navigator.clipboard.writeText(currentResult).then(() => {
+                alert('✅ 已复制到剪贴板！');
+            }).catch(err => {
+                // 如果clipboard API不支持，使用传统方法
+                const textarea = document.createElement('textarea');
+                textarea.value = currentResult;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✅ 已复制到剪贴板！');
+            });
+        }
+
+        function downloadResult() {
+            if (!currentResult) return;
+
+            const blob = new Blob([currentResult], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '论坛体小说_' + new Date().getTime() + '.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.classList.add('active');
+        }
+
+        // 支持回车键触发生成
+        document.getElementById('theme').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateNovel();
+            }
+        });
+
+        // 注册 Service Worker (PWA支持)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/assets/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed');
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

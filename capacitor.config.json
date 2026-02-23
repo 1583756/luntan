@@ -1,0 +1,17 @@
+{
+  "appId": "com.forum.novel",
+  "appName": "论坛小说",
+  "webDir": "www",
+  "server": {
+    "url": "https://forum-novel-generator.onrender.com",
+    "cleartext": true
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": "/path/to/your/keystore.jks",
+      "keystoreAlias": "your-alias",
+      "keystoreAliasPassword": "your-password",
+      "keystorePassword": "your-password"
+    }
+  }
+}
