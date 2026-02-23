@@ -9,7 +9,7 @@ import cozeloop
 import uvicorn
 import time
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
@@ -253,7 +253,7 @@ async def read_root():
     index_file = assets_dir / "index.html"
     if index_file.exists():
         with open(index_file, 'r', encoding='utf-8') as f:
-            return f.read()
+            return HTMLResponse(content=f.read(), media_type="text/html; charset=utf-8")
     return {"message": "论坛体小说生成器 API 服务", "docs": "/docs", "health": "/health", "app": "/assets/index.html"}
 
 # OpenAI 兼容接口处理器
